@@ -199,6 +199,10 @@ export default function AddItemDialog({ open, onClose, defaultCategory, item, pr
       notes: notes || null,
       images,
       extra: extraJson,
+      asking_price: null,
+      sale_price:   null,
+      sale_date:    null,
+      sale_notes:   null,
     }
 
     if (isEditing) {
