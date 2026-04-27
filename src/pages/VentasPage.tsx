@@ -109,7 +109,7 @@ function ForSaleCard({ item, onSold, onReturn, onEdit, onDetail }: {
 
         {/* Acciones */}
         <div
-          className="flex gap-1 pt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="flex gap-1 pt-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
           onClick={e => e.stopPropagation()}
         >
           {confirmReturn ? (
@@ -212,7 +212,7 @@ function SoldCard({ item, onReturn, onDetail }: {
 
         {/* Devolver */}
         <div
-          className="pt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="pt-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
           onClick={e => e.stopPropagation()}
         >
           {confirmReturn ? (

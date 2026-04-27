@@ -3,12 +3,13 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { LayoutGrid, Heart, BarChart2, LogOut, Sun, Moon, Tag } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
+import LogoBanner from '@/components/LogoBanner'
 
 const navItems = [
-  { to: '/collection', label: 'Colección',   icon: LayoutGrid },
-  { to: '/wishlist',   label: 'Wishlist',     icon: Heart },
-  { to: '/ventas',     label: 'Ventas',       icon: Tag },
-  { to: '/stats',      label: 'Estadísticas', icon: BarChart2 },
+  { to: '/collection', label: 'Colección',    short: 'Colección', icon: LayoutGrid },
+  { to: '/wishlist',   label: 'Wishlist',      short: 'Wishlist',  icon: Heart },
+  { to: '/ventas',     label: 'Ventas',        short: 'Ventas',    icon: Tag },
+  { to: '/stats',      label: 'Estadísticas',  short: 'Stats',     icon: BarChart2 },
 ]
 
 function getInitialDark(): boolean {
@@ -34,10 +35,13 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="border-b px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold tracking-tight">Colección AL</h1>
-        <div className="flex items-center gap-4">
-          <nav className="flex items-center gap-1">
+      <header className="border-b px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+        {/* Logo banner (icono + título en un solo SVG) */}
+        <LogoBanner className="h-10 w-auto shrink-0 text-blue-600 dark:text-blue-400" />
+
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Nav — solo visible en desktop */}
+          <nav className="hidden md:flex items-center gap-1">
             {navItems.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
@@ -57,8 +61,7 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2 border-l pl-4">
-            {/* Dark mode toggle */}
+          <div className="flex items-center gap-1 sm:gap-2 md:border-l md:pl-4">
             <button
               onClick={() => setIsDark(d => !d)}
               className="p-2 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
@@ -70,17 +73,49 @@ export default function Layout() {
             <span className="text-xs text-muted-foreground hidden sm:block">{user?.email}</span>
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
             >
               <LogOut size={16} />
-              Salir
+              <span className="hidden sm:inline">Salir</span>
             </button>
           </div>
         </div>
       </header>
-      <main className="flex-1 p-6">
+
+      {/* Contenido principal — pb-20 deja espacio para el bottom nav en móvil */}
+      <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6">
         <Outlet />
       </main>
+
+      {/* Bottom nav — solo móvil */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="flex h-16">
+          {navItems.map(({ to, short, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                cn(
+                  'flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors',
+                  isActive ? 'text-primary' : 'text-muted-foreground',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className={cn('p-1 rounded-lg transition-colors', isActive && 'bg-primary/10')}>
+                    <Icon size={20} />
+                  </div>
+                  <span>{short}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   )
 }

@@ -215,7 +215,7 @@ export default function CollectionPage() {
       </div>
 
       {/* Buscador + Ordenar */}
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
@@ -249,7 +249,7 @@ export default function CollectionPage() {
       </div>
 
       {/* Filtros de categoría con contadores */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 overflow-x-auto pb-0.5 flex-nowrap sm:flex-wrap scrollbar-none">
         <button
           onClick={() => selectCategory(undefined)}
           className={cn(

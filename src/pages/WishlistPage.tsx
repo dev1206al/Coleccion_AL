@@ -90,7 +90,7 @@ function WishlistCard({ item, onEdit, onObtained, onDeleted }: CardProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
           {confirming ? (
             <>
               <button
@@ -252,7 +252,7 @@ export default function WishlistPage() {
           {/* Filtros */}
           <div className="space-y-3">
             {/* Buscador + Ordenar */}
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 <input
@@ -277,7 +277,7 @@ export default function WishlistPage() {
             </div>
 
             {/* Categoría + Prioridad */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 overflow-x-auto pb-0.5 flex-nowrap sm:flex-wrap scrollbar-none">
               <button
                 onClick={() => setFilterCat('all')}
                 className={cn(

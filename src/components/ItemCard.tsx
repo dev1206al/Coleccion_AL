@@ -79,7 +79,7 @@ export default function ItemCard({ item, onEdit, onDetail, onSell, onDeleted }: 
 
           {/* Acciones */}
           <div
-            className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"
             onClick={e => e.stopPropagation()}
           >
             {confirming ? (
