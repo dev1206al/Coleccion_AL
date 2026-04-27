@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Heart, Trash2, Pencil, ExternalLink, Search, Package, ArrowUpDown, CheckCircle2 } from 'lucide-react'
+import { Heart, Trash2, Pencil, ExternalLink, Search, Package, ArrowUpDown, CheckCircle2, SlidersHorizontal, X as XIcon } from 'lucide-react'
 import { useWishlistItems, useDeleteWishlistItem } from '@/hooks/useWishlist'
 import AddWishlistDialog from '@/components/AddWishlistDialog'
 import AddItemDialog from '@/components/AddItemDialog'
@@ -170,13 +170,14 @@ export default function WishlistPage() {
   const { data: items = [], isLoading } = useWishlistItems()
   const { toast }                         = useToast()
   const deleteWishlist                    = useDeleteWishlistItem()
-  const [dialogOpen,   setDialogOpen]     = useState(false)
-  const [editingItem,  setEditingItem]    = useState<WishlistItem | undefined>()
-  const [obtainingItem, setObtainingItem] = useState<WishlistItem | undefined>()
-  const [search,       setSearch]         = useState('')
-  const [filterCat,    setFilterCat]      = useState<Category | 'all'>('all')
-  const [filterPri,    setFilterPri]      = useState<WishlistPriority | 'all'>('all')
-  const [sortBy,       setSortBy]         = useState<WishlistSortKey>('created_desc')
+  const [dialogOpen,      setDialogOpen]      = useState(false)
+  const [editingItem,     setEditingItem]     = useState<WishlistItem | undefined>()
+  const [obtainingItem,   setObtainingItem]   = useState<WishlistItem | undefined>()
+  const [search,          setSearch]          = useState('')
+  const [filterCat,       setFilterCat]       = useState<Category | 'all'>('all')
+  const [filterPri,       setFilterPri]       = useState<WishlistPriority | 'all'>('all')
+  const [sortBy,          setSortBy]          = useState<WishlistSortKey>('created_desc')
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -251,18 +252,47 @@ export default function WishlistPage() {
         <>
           {/* Filtros */}
           <div className="space-y-3">
-            {/* Buscador + Ordenar */}
-            <div className="flex flex-col sm:flex-row gap-2">
+            {/* Buscador + controles */}
+            <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Buscar en wishlist..."
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   className="w-full pl-9 pr-3 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
-              <div className="relative">
+
+              {/* Mobile/tablet: botón de filtros */}
+              {(() => {
+                const badge = (filterCat !== 'all' ? 1 : 0) + (filterPri !== 'all' ? 1 : 0)
+                return (
+                  <button
+                    onClick={() => setFilterSheetOpen(true)}
+                    className={cn(
+                      'lg:hidden flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium transition-colors shrink-0',
+                      badge > 0
+                        ? 'bg-primary/10 border-primary/40 text-primary'
+                        : 'bg-background hover:bg-accent',
+                    )}
+                  >
+                    <SlidersHorizontal size={15} />
+                    Filtros
+                    {badge > 0 && (
+                      <span className="bg-primary text-primary-foreground rounded-full min-w-[18px] h-[18px] text-[10px] flex items-center justify-center font-bold leading-none px-1">
+                        {badge}
+                      </span>
+                    )}
+                  </button>
+                )
+              })()}
+
+              {/* Desktop: sort select */}
+              <div className="hidden lg:block relative">
                 <ArrowUpDown size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 <select
                   value={sortBy}
@@ -276,8 +306,8 @@ export default function WishlistPage() {
               </div>
             </div>
 
-            {/* Categoría + Prioridad */}
-            <div className="flex gap-2 overflow-x-auto pb-0.5 flex-nowrap sm:flex-wrap scrollbar-none">
+            {/* Desktop: Categoría + Prioridad */}
+            <div className="hidden lg:flex gap-2 overflow-x-auto pb-0.5 flex-nowrap lg:flex-wrap scrollbar-none">
               <button
                 onClick={() => setFilterCat('all')}
                 className={cn(
@@ -314,6 +344,117 @@ export default function WishlistPage() {
               ))}
             </div>
           </div>
+
+          {/* Mobile/tablet: filter bottom sheet */}
+          {filterSheetOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-[55] bg-black/40"
+                onClick={() => setFilterSheetOpen(false)}
+              />
+              <div className="fixed bottom-0 left-0 right-0 z-[60] bg-card rounded-t-2xl shadow-2xl animate-detail-panel">
+                <div className="flex justify-center pt-3 pb-1 shrink-0">
+                  <div className="w-10 h-1 rounded-full bg-muted-foreground/25" />
+                </div>
+
+                <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
+                  <h3 className="font-semibold text-base">Filtros</h3>
+                  <div className="flex items-center gap-3">
+                    {(filterCat !== 'all' || filterPri !== 'all' || sortBy !== 'created_desc') && (
+                      <button
+                        onClick={() => { setFilterCat('all'); setFilterPri('all'); setSortBy('created_desc') }}
+                        className="text-xs text-primary font-medium"
+                      >
+                        Limpiar todo
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setFilterSheetOpen(false)}
+                      className="p-1.5 rounded-md hover:bg-accent transition-colors"
+                    >
+                      <XIcon size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-y-auto overscroll-contain max-h-[62vh] px-5 py-4 space-y-5">
+
+                  {/* Ordenar por */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Ordenar por</p>
+                    <div className="relative">
+                      <ArrowUpDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                      <select
+                        value={sortBy}
+                        onChange={e => setSortBy(e.target.value as WishlistSortKey)}
+                        className="w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring appearance-none text-foreground"
+                      >
+                        {WISHLIST_SORT_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Categoría */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Categoría</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => setFilterCat('all')}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                          filterCat === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-accent',
+                        )}
+                      >
+                        Todas
+                      </button>
+                      {ALL_CATEGORIES.map(cat => (
+                        <button key={cat}
+                          onClick={() => setFilterCat(filterCat === cat ? 'all' : cat)}
+                          className={cn(
+                            'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                            filterCat === cat ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-accent',
+                          )}
+                        >
+                          {CATEGORY_EMOJI[cat]} {CATEGORY_LABEL[cat]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Prioridad */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Prioridad</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => setFilterPri('all')}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                          filterPri === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-accent',
+                        )}
+                      >
+                        Todas
+                      </button>
+                      {(['high', 'medium', 'low'] as WishlistPriority[]).map(p => (
+                        <button key={p}
+                          onClick={() => setFilterPri(filterPri === p ? 'all' : p)}
+                          className={cn(
+                            'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                            filterPri === p ? PRIORITY_STYLE[p] : 'bg-background hover:bg-accent',
+                          )}
+                        >
+                          {PRIORITY_LABEL[p]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ height: 'env(safe-area-inset-bottom)' }} />
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Grid */}
           {filtered.length === 0 ? (

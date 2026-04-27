@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { X } from 'lucide-react'
+import { useSwipeDown } from '@/hooks/useSwipeDown'
 import { useAddItem, useUpdateItem } from '@/hooks/useCollection'
 import SelectWithOther from '@/components/SelectWithOther'
 import ImageUploader from '@/components/ImageUploader'
@@ -21,7 +22,7 @@ const categories: { value: Category; label: string; emoji: string }[] = [
 const conditions: { value: ItemCondition; label: string; hint: string }[] = [
   { value: 'sealed',    label: 'Sealed',    hint: 'Sin abrir' },
   { value: 'mint',      label: 'Mint',      hint: 'Perfecto' },
-  { value: 'near_mint', label: 'Near Mint', hint: 'Casi' },
+  { value: 'near_mint', label: 'Near Mint', hint: 'Casi perfecto' },
   { value: 'good',      label: 'Good',      hint: 'Buen uso' },
   { value: 'fair',      label: 'Fair',      hint: 'Con daños' },
 ]
@@ -71,12 +72,13 @@ interface Props {
   onClose: () => void
   defaultCategory?: Category
   item?: CollectionItem
+  isDuplicate?: boolean
   prefill?: Prefill
   onSuccess?: () => void
 }
 
-export default function AddItemDialog({ open, onClose, defaultCategory, item, prefill, onSuccess }: Props) {
-  const isEditing = !!item
+export default function AddItemDialog({ open, onClose, defaultCategory, item, isDuplicate, prefill, onSuccess }: Props) {
+  const isEditing = !!item && !isDuplicate
   const addItem    = useAddItem()
   const updateItem = useUpdateItem()
   const mutation   = isEditing ? updateItem : addItem
@@ -97,7 +99,6 @@ export default function AddItemDialog({ open, onClose, defaultCategory, item, pr
   const [imageFiles, setImageFiles]   = useState<File[]>([])
   const [newPreviews, setNewPreviews] = useState<string[]>([])
 
-  // Re-inicializa cuando el item cambia (al abrir para editar otro)
   useEffect(() => {
     if (!open) return
     const cat = item?.category ?? prefill?.category ?? defaultCategory ?? 'figures'
@@ -112,7 +113,7 @@ export default function AddItemDialog({ open, onClose, defaultCategory, item, pr
     setEstValue(item?.estimated_value != null ? String(item.estimated_value) : '')
     setNotes(item?.notes ?? prefill?.notes ?? '')
     setExtra(item ? extraFromItem(item) : defaultExtra(cat))
-    setExistingUrls(item?.images ?? [])
+    setExistingUrls(isDuplicate ? [] : (item?.images ?? []))
     setImageFiles([])
     setNewPreviews([])
   }, [open, item])   // eslint-disable-line react-hooks/exhaustive-deps
@@ -215,325 +216,362 @@ export default function AddItemDialog({ open, onClose, defaultCategory, item, pr
     onClose()
   }
 
+  const { panelRef, handleRef } = useSwipeDown(onClose)
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-card border rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-[60] bg-black/50" onClick={onClose} />
 
-        <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-card z-10">
-          <h2 className="font-semibold">{isEditing ? 'Editar ítem' : 'Agregar ítem'}</h2>
+      {/* Panel: bottom sheet en móvil/tablet, modal centrado en desktop */}
+      <div ref={panelRef} className={cn(
+        'fixed z-[65] bg-card shadow-2xl flex flex-col overflow-hidden',
+        // Móvil/tablet: bottom sheet
+        'bottom-0 left-0 right-0 rounded-t-2xl max-h-[92vh] animate-detail-panel',
+        // Desktop: modal centrado
+        'lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2',
+        'lg:rounded-xl lg:w-full lg:max-w-md lg:border lg:max-h-[90vh]',
+      )}>
+
+        {/* Drag handle — solo en móvil/tablet */}
+        <div ref={handleRef} className="lg:hidden flex justify-center pt-3 pb-1 shrink-0 touch-none cursor-grab">
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/25" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+          <h2 className="font-semibold">
+            {isEditing ? 'Editar ítem' : isDuplicate ? 'Duplicar ítem' : 'Agregar ítem'}
+          </h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-accent transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        {/* Contenido scrollable */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          <form onSubmit={handleSubmit} className="p-4 space-y-4">
 
-          {/* Categoría */}
-          <div>
-            <label className={labelClass}>Categoría</label>
-            <div className="flex gap-2 flex-wrap">
-              {categories.map((cat) => (
-                <button key={cat.value} type="button"
-                  onClick={() => changeCategory(cat.value)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
-                    category === cat.value
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background hover:bg-accent',
-                  )}>
-                  {cat.emoji} {cat.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Nombre */}
-          <div>
-            <label className={labelClass} htmlFor="name">
-              {category === 'vinyls' ? 'Álbum *' : 'Nombre *'}
-            </label>
-            <input id="name" required value={name} onChange={e => setName(e.target.value)}
-              placeholder={
-                category === 'figures'    ? 'ej. Spider-Man No Way Home' :
-                category === 'vinyls'     ? 'ej. Thriller' :
-                category === 'headphones' ? 'ej. WF-1000XM5' :
-                category === 'lego'       ? 'ej. Batman (CMF Serie 1)' :
-                'ej. Bleu de Chanel'
-              }
-              className={inputClass} />
-          </div>
-
-          {/* ── Campos por categoría ── */}
-
-          {category === 'figures' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass}>Línea</label>
-                <SelectWithOther
-                  options={['Marvel Legends','Mafex','SH Figuarts','Funko Pop','McFarlane Toys','NECA','Inarts']}
-                  value={extra.line}
-                  onChange={v => setExtraField('line', v)}
-                  placeholder="Seleccionar línea"
-                  otherPlaceholder="ej. S.H. Monsterarts"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Marca</label>
-                <input value={brand} onChange={e => setBrand(e.target.value)}
-                  placeholder="ej. Hot Toys" className={inputClass} />
+            {/* Categoría */}
+            <div>
+              <label className={labelClass}>Categoría</label>
+              <div className="flex gap-2 flex-wrap">
+                {categories.map((cat) => (
+                  <button key={cat.value} type="button"
+                    onClick={() => changeCategory(cat.value)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                      category === cat.value
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background hover:bg-accent',
+                    )}>
+                    {cat.emoji} {cat.label}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
 
-          {category === 'headphones' && (
-            <div className="space-y-3">
+            {/* Nombre */}
+            <div>
+              <label className={labelClass} htmlFor="name">
+                {category === 'vinyls' ? 'Álbum *' : 'Nombre *'}
+              </label>
+              <input id="name" required value={name} onChange={e => setName(e.target.value)}
+                placeholder={
+                  category === 'figures'    ? 'ej. Spider-Man No Way Home' :
+                  category === 'vinyls'     ? 'ej. Thriller' :
+                  category === 'headphones' ? 'ej. WF-1000XM5' :
+                  category === 'lego'       ? 'ej. Batman (CMF Serie 1)' :
+                  'ej. Bleu de Chanel'
+                }
+                className={inputClass} />
+            </div>
+
+            {/* ── Campos por categoría ── */}
+
+            {category === 'figures' && (
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Línea</label>
+                  <SelectWithOther
+                    options={['Marvel Legends','Mafex','SH Figuarts','Funko Pop','McFarlane Toys','NECA','Inarts']}
+                    value={extra.line}
+                    onChange={v => setExtraField('line', v)}
+                    placeholder="Seleccionar línea"
+                    otherPlaceholder="ej. S.H. Monsterarts"
+                  />
+                </div>
                 <div>
                   <label className={labelClass}>Marca</label>
-                  <SelectWithOther
-                    options={['Sony','Bose','Apple','Samsung','Jabra','Sennheiser']}
-                    value={brand}
-                    onChange={setBrand}
-                    placeholder="Seleccionar marca"
-                    otherPlaceholder="ej. Anker"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Tipo</label>
-                  <SelectWithOther
-                    options={['TWS (In-ear)','Over-ear','On-ear','Neckband']}
-                    value={extra.type}
-                    onChange={v => setExtraField('type', v)}
-                    placeholder="Tipo"
-                    otherPlaceholder="ej. Bone conduction"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Serie / Modelo</label>
-                <SelectWithOther
-                  options={['WF-1000XM5','WF-1000XM4','WH-1000XM5','WH-1000XM4','QuietComfort 45','QuietComfort Ultra','AirPods Pro']}
-                  value={extra.series}
-                  onChange={v => setExtraField('series', v)}
-                  placeholder="Seleccionar modelo"
-                  otherPlaceholder="ej. WF-C700N"
-                />
-              </div>
-            </div>
-          )}
-
-          {category === 'vinyls' && (
-            <div className="space-y-3">
-              <div>
-                <label className={labelClass}>Artista / Banda</label>
-                <input value={extra.artist}
-                  onChange={e => setExtraField('artist', e.target.value)}
-                  placeholder="ej. Michael Jackson" className={inputClass} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>Género</label>
-                  <SelectWithOther
-                    options={['Rock','Pop','Jazz','Clásica','Electrónica','Hip-Hop','R&B','Metal','Reggae','Blues']}
-                    value={brand}
-                    onChange={setBrand}
-                    placeholder="Seleccionar género"
-                    otherPlaceholder="ej. Bossa Nova"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Año de lanzamiento</label>
-                  <select value={extra.releaseYear}
-                    onChange={e => setExtraField('releaseYear', e.target.value)}
-                    className={inputClass}>
-                    <option value="">Año</option>
-                    {Array.from({ length: currentYear - 1899 }, (_, i) => currentYear - i).map(y => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Sello discográfico</label>
-                <input value={extra.label}
-                  onChange={e => setExtraField('label', e.target.value)}
-                  placeholder="ej. Epic Records" className={inputClass} />
-              </div>
-            </div>
-          )}
-
-          {category === 'lego' && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>Tema</label>
-                  <SelectWithOther
-                    options={['CMF','Star Wars','Marvel','DC','Harry Potter','City','Technic','Icons','Creator']}
-                    value={extra.theme}
-                    onChange={v => setExtraField('theme', v)}
-                    placeholder="Seleccionar tema"
-                    otherPlaceholder="ej. Ninjago"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>No. de set</label>
-                  <input value={extra.setNumber}
-                    onChange={e => setExtraField('setNumber', e.target.value)}
-                    placeholder="ej. 71039" className={inputClass} />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Serie</label>
-                <input value={extra.series}
-                  onChange={e => setExtraField('series', e.target.value)}
-                  placeholder="ej. CMF Serie 26" className={inputClass} />
-              </div>
-            </div>
-          )}
-
-          {category === 'perfumes' && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>Casa / Marca</label>
                   <input value={brand} onChange={e => setBrand(e.target.value)}
-                    placeholder="ej. Chanel" className={inputClass} />
+                    placeholder="ej. Hot Toys" className={inputClass} />
+                </div>
+              </div>
+            )}
+
+            {category === 'headphones' && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Marca</label>
+                    <SelectWithOther
+                      options={['Sony','Bose','Apple','Samsung','Jabra','Sennheiser']}
+                      value={brand}
+                      onChange={setBrand}
+                      placeholder="Seleccionar marca"
+                      otherPlaceholder="ej. Anker"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Tipo</label>
+                    <SelectWithOther
+                      options={['TWS (In-ear)','Over-ear','On-ear','Neckband']}
+                      value={extra.type}
+                      onChange={v => setExtraField('type', v)}
+                      placeholder="Tipo"
+                      otherPlaceholder="ej. Bone conduction"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className={labelClass}>Familia olfativa</label>
+                  <label className={labelClass}>Serie / Modelo</label>
                   <SelectWithOther
-                    options={['Floral','Amaderado','Oriental','Fresco','Cítrico','Acuático','Gourmand','Chipre','Fougère']}
-                    value={extra.family}
-                    onChange={v => setExtraField('family', v)}
-                    placeholder="Seleccionar familia"
-                    otherPlaceholder="ej. Especiado"
+                    options={['WF-1000XM5','WF-1000XM4','WH-1000XM5','WH-1000XM4','QuietComfort 45','QuietComfort Ultra','AirPods Pro']}
+                    value={extra.series}
+                    onChange={v => setExtraField('series', v)}
+                    placeholder="Seleccionar modelo"
+                    otherPlaceholder="ej. WF-C700N"
                   />
                 </div>
+              </div>
+            )}
+
+            {category === 'vinyls' && (
+              <div className="space-y-3">
+                <div>
+                  <label className={labelClass}>Artista / Banda</label>
+                  <input value={extra.artist}
+                    onChange={e => setExtraField('artist', e.target.value)}
+                    placeholder="ej. Michael Jackson" className={inputClass} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Género</label>
+                    <SelectWithOther
+                      options={['Rock','Pop','Jazz','Clásica','Electrónica','Hip-Hop','R&B','Metal','Reggae','Blues']}
+                      value={brand}
+                      onChange={setBrand}
+                      placeholder="Seleccionar género"
+                      otherPlaceholder="ej. Bossa Nova"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Año de lanzamiento</label>
+                    <select value={extra.releaseYear}
+                      onChange={e => setExtraField('releaseYear', e.target.value)}
+                      className={inputClass}>
+                      <option value="">Año</option>
+                      {Array.from({ length: currentYear - 1899 }, (_, i) => currentYear - i).map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Sello discográfico</label>
+                  <input value={extra.label}
+                    onChange={e => setExtraField('label', e.target.value)}
+                    placeholder="ej. Epic Records" className={inputClass} />
+                </div>
+              </div>
+            )}
+
+            {category === 'lego' && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Tema</label>
+                    <SelectWithOther
+                      options={['CMF','Star Wars','Marvel','DC','Harry Potter','City','Technic','Icons','Creator']}
+                      value={extra.theme}
+                      onChange={v => setExtraField('theme', v)}
+                      placeholder="Seleccionar tema"
+                      otherPlaceholder="ej. Ninjago"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>No. de set</label>
+                    <input value={extra.setNumber}
+                      onChange={e => setExtraField('setNumber', e.target.value)}
+                      placeholder="ej. 71039" className={inputClass} />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Serie</label>
+                  <input value={extra.series}
+                    onChange={e => setExtraField('series', e.target.value)}
+                    placeholder="ej. CMF Serie 26" className={inputClass} />
+                </div>
+              </div>
+            )}
+
+            {category === 'perfumes' && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Casa / Marca</label>
+                    <input value={brand} onChange={e => setBrand(e.target.value)}
+                      placeholder="ej. Chanel" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Familia olfativa</label>
+                    <SelectWithOther
+                      options={['Floral','Amaderado','Oriental','Fresco','Cítrico','Acuático','Gourmand','Chipre','Fougère']}
+                      value={extra.family}
+                      onChange={v => setExtraField('family', v)}
+                      placeholder="Seleccionar familia"
+                      otherPlaceholder="ej. Especiado"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Notas / Aroma</label>
+                  <input value={extra.aroma}
+                    onChange={e => setExtraField('aroma', e.target.value)}
+                    placeholder="ej. Bergamota, cedro, almizcle" className={inputClass} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Concentración</label>
+                    <SelectWithOther
+                      options={['Parfum','EDP','EDT','EDC','Body Mist']}
+                      value={extra.concentration}
+                      onChange={v => setExtraField('concentration', v)}
+                      placeholder="Seleccionar"
+                      otherPlaceholder="ej. Soie de Parfum"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Tamaño (ml)</label>
+                    <input type="number" min="1" value={extra.sizeMl}
+                      onChange={e => setExtraField('sizeMl', e.target.value)}
+                      placeholder="ej. 100" className={inputClass} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Condición ── */}
+            <div>
+              <label className={labelClass}>Condición</label>
+              {/* Móvil/tablet: select nativo */}
+              <select
+                value={condition}
+                onChange={e => setCondition(e.target.value as ItemCondition)}
+                className={cn(inputClass, 'lg:hidden')}
+              >
+                {conditions.map(c => (
+                  <option key={c.value} value={c.value}>{c.label} — {c.hint}</option>
+                ))}
+              </select>
+              {/* Desktop: grid de botones */}
+              <div className="hidden lg:grid grid-cols-5 gap-1.5">
+                {conditions.map((c) => (
+                  <button key={c.value} type="button" onClick={() => setCondition(c.value)}
+                    className={cn(
+                      'flex flex-col items-center py-2 px-1 rounded-md text-xs font-medium border transition-colors',
+                      condition === c.value
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background hover:bg-accent',
+                    )}>
+                    <span>{c.label}</span>
+                    <span className="opacity-60 text-[10px] mt-0.5 leading-tight text-center">{c.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Fecha ── */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium">Fecha de adquisición</label>
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                  <input type="checkbox" checked={noDate} onChange={e => setNoDate(e.target.checked)} />
+                  No recuerdo
+                </label>
+              </div>
+              <div className={cn('grid grid-cols-2 gap-2 transition-opacity', noDate && 'opacity-40 pointer-events-none')}>
+                <select value={month} onChange={e => setMonth(e.target.value)} className={inputClass}>
+                  <option value="">Mes (opcional)</option>
+                  {months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                </select>
+                <select value={year} onChange={e => setYear(e.target.value)} className={inputClass}>
+                  <option value="">Año</option>
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* ── Precio / Valor ── */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass} htmlFor="price">Precio compra</label>
+                <input id="price" type="number" min="0" step="0.01" value={price}
+                  onChange={e => setPrice(e.target.value)}
+                  placeholder="Sin registro" className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Notas / Aroma</label>
-                <input value={extra.aroma}
-                  onChange={e => setExtraField('aroma', e.target.value)}
-                  placeholder="ej. Bergamota, cedro, almizcle" className={inputClass} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>Concentración</label>
-                  <SelectWithOther
-                    options={['Parfum','EDP','EDT','EDC','Body Mist']}
-                    value={extra.concentration}
-                    onChange={v => setExtraField('concentration', v)}
-                    placeholder="Seleccionar"
-                    otherPlaceholder="ej. Soie de Parfum"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Tamaño (ml)</label>
-                  <input type="number" min="1" value={extra.sizeMl}
-                    onChange={e => setExtraField('sizeMl', e.target.value)}
-                    placeholder="ej. 100" className={inputClass} />
-                </div>
+                <label className={labelClass} htmlFor="estValue">Valor estimado</label>
+                <input id="estValue" type="number" min="0" step="0.01" value={estValue}
+                  onChange={e => setEstValue(e.target.value)}
+                  placeholder="Sin registro" className={inputClass} />
               </div>
             </div>
-          )}
 
-          {/* ── Condición ── */}
-          <div>
-            <label className={labelClass}>Condición</label>
-            <div className="grid grid-cols-5 gap-1.5">
-              {conditions.map((c) => (
-                <button key={c.value} type="button" onClick={() => setCondition(c.value)}
-                  className={cn(
-                    'flex flex-col items-center py-2 px-1 rounded-md text-xs font-medium border transition-colors',
-                    condition === c.value
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background hover:bg-accent',
-                  )}>
-                  <span>{c.label}</span>
-                  <span className="opacity-60 text-[10px] mt-0.5 leading-tight text-center">{c.hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Fecha ── */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium">Fecha de adquisición</label>
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-                <input type="checkbox" checked={noDate} onChange={e => setNoDate(e.target.checked)} />
-                No recuerdo
-              </label>
-            </div>
-            <div className={cn('grid grid-cols-2 gap-2 transition-opacity', noDate && 'opacity-40 pointer-events-none')}>
-              <select value={month} onChange={e => setMonth(e.target.value)} className={inputClass}>
-                <option value="">Mes (opcional)</option>
-                {months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-              </select>
-              <select value={year} onChange={e => setYear(e.target.value)} className={inputClass}>
-                <option value="">Año</option>
-                {years.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* ── Precio / Valor ── */}
-          <div className="grid grid-cols-2 gap-3">
+            {/* ── Imágenes ── */}
             <div>
-              <label className={labelClass} htmlFor="price">Precio compra</label>
-              <input id="price" type="number" min="0" step="0.01" value={price}
-                onChange={e => setPrice(e.target.value)}
-                placeholder="Sin registro" className={inputClass} />
+              <label className={labelClass}>Imágenes</label>
+              <ImageUploader
+                previews={allPreviews}
+                onAdd={addImages}
+                onRemove={removeImage}
+              />
             </div>
+
+            {/* ── Notas ── */}
             <div>
-              <label className={labelClass} htmlFor="estValue">Valor estimado</label>
-              <input id="estValue" type="number" min="0" step="0.01" value={estValue}
-                onChange={e => setEstValue(e.target.value)}
-                placeholder="Sin registro" className={inputClass} />
+              <label className={labelClass} htmlFor="notes">Notas</label>
+              <textarea id="notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)}
+                placeholder="Detalles adicionales..."
+                className={cn(inputClass, 'resize-none')} />
             </div>
-          </div>
 
-          {/* ── Imágenes ── */}
-          <div>
-            <label className={labelClass}>Imágenes</label>
-            <ImageUploader
-              previews={allPreviews}
-              onAdd={addImages}
-              onRemove={removeImage}
-            />
-          </div>
+            {mutation.isError && (
+              <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+                {(mutation.error as Error).message}
+              </p>
+            )}
 
-          {/* ── Notas ── */}
-          <div>
-            <label className={labelClass} htmlFor="notes">Notas</label>
-            <textarea id="notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)}
-              placeholder="Detalles adicionales..."
-              className={cn(inputClass, 'resize-none')} />
-          </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onClose}
+                className="flex-1 py-2 border rounded-md text-sm font-medium hover:bg-accent transition-colors">
+                Cancelar
+              </button>
+              <button type="submit" disabled={mutation.isPending}
+                className="flex-1 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                {mutation.isPending
+                  ? (isEditing ? 'Guardando...' : 'Agregando...')
+                  : (isEditing ? 'Guardar cambios' : 'Agregar')}
+              </button>
+            </div>
 
-          {mutation.isError && (
-            <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
-              {(mutation.error as Error).message}
-            </p>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 py-2 border rounded-md text-sm font-medium hover:bg-accent transition-colors">
-              Cancelar
-            </button>
-            <button type="submit" disabled={mutation.isPending}
-              className="flex-1 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
-              {mutation.isPending
-                ? (isEditing ? 'Guardando...' : 'Agregando...')
-                : (isEditing ? 'Guardar cambios' : 'Agregar')}
-            </button>
-          </div>
-        </form>
+            {/* Safe area en iPhone */}
+            <div style={{ height: 'env(safe-area-inset-bottom)' }} className="lg:hidden" />
+          </form>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

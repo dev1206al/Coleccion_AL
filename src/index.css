@@ -48,9 +48,14 @@
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;  /* elimina flash gris al tocar en iOS/Android */
   }
   body {
     @apply bg-background text-foreground;
+    overscroll-behavior: none;  /* evita rebote pull-to-refresh al llegar al top/bottom */
+  }
+  button, a, [role='button'] {
+    touch-action: manipulation;  /* desactiva zoom por doble tap en elementos interactivos */
   }
 }
 
@@ -68,4 +73,36 @@
 }
 .animate-slide-in-right {
   animation: slide-in-right 0.25s ease-out;
+}
+
+@keyframes slide-in-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Detail panel: sube desde abajo en móvil, entra por la derecha en tablet/desktop */
+.animate-detail-panel {
+  animation: slide-in-up 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (min-width: 768px) {
+  .animate-detail-panel {
+    animation: slide-in-right 0.25s ease-out;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out;
+}
+
+/* Previene el zoom automático de iOS al hacer focus en inputs con font-size < 16px */
+@media (max-width: 1023px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }

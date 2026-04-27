@@ -40,8 +40,8 @@ export default function Layout() {
         <LogoBanner className="h-10 w-auto shrink-0 text-blue-600 dark:text-blue-400" />
 
         <div className="flex items-center gap-2 sm:gap-4">
-          {/* Nav — solo visible en desktop */}
-          <nav className="hidden md:flex items-center gap-1">
+          {/* Nav — solo visible en desktop (lg+) */}
+          <nav className="hidden lg:flex items-center gap-1">
             {navItems.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
@@ -61,7 +61,7 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-1 sm:gap-2 md:border-l md:pl-4">
+          <div className="flex items-center gap-1 sm:gap-2 lg:border-l lg:pl-4">
             <button
               onClick={() => setIsDark(d => !d)}
               className="p-2 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
@@ -82,14 +82,14 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* Contenido principal — pb-20 deja espacio para el bottom nav en móvil */}
-      <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6">
+      {/* Contenido principal — pb-20 deja espacio para el bottom nav en móvil/tablet */}
+      <main className="flex-1 p-4 sm:p-6 pb-28 lg:pb-6">
         <Outlet />
       </main>
 
-      {/* Bottom nav — solo móvil */}
+      {/* Bottom nav — móvil y tablet (< lg) */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex h-16">

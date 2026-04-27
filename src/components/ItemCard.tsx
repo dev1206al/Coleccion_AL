@@ -58,7 +58,7 @@ export default function ItemCard({ item, onEdit, onDetail, onSell, onDeleted }: 
 
   return (
     <div
-      className="border rounded-lg bg-card overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
+      className="border rounded-lg bg-card overflow-hidden hover:shadow-md transition-all group cursor-pointer active:scale-[0.97] active:shadow-sm"
       onClick={() => onDetail(item)}
     >
       <div className="aspect-square bg-white flex items-center justify-center text-5xl overflow-hidden">

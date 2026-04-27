@@ -1,5 +1,8 @@
-import { X, Pencil, Tag } from 'lucide-react'
+import { useState } from 'react'
+import { X, Pencil, Tag, Copy } from 'lucide-react'
 import ImageCarousel from '@/components/ImageCarousel'
+import ImageLightbox from '@/components/ImageLightbox'
+import { useSwipeDown } from '@/hooks/useSwipeDown'
 import { cn } from '@/lib/utils'
 import type { CollectionItem } from '@/types/collection'
 
@@ -65,10 +68,14 @@ interface Props {
   item: CollectionItem | null
   onClose: () => void
   onEdit: (item: CollectionItem) => void
+  onDuplicate?: (item: CollectionItem) => void
   onSell?: (item: CollectionItem) => void
 }
 
-export default function ItemDetailPanel({ item, onClose, onEdit, onSell }: Props) {
+export default function ItemDetailPanel({ item, onClose, onEdit, onDuplicate, onSell }: Props) {
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const { panelRef, handleRef } = useSwipeDown(onClose)
+
   if (!item) return null
 
   const dateStr = item.acquisition_year
@@ -84,15 +91,30 @@ export default function ItemDetailPanel({ item, onClose, onEdit, onSell }: Props
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/40"
+        className="fixed inset-0 z-[55] bg-black/40"
         onClick={onClose}
       />
 
       {/* Panel */}
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-card border-l shadow-2xl flex flex-col animate-slide-in-right">
+      <div
+        ref={panelRef}
+        className={cn(
+          'fixed z-[60] bg-card shadow-2xl flex flex-col animate-detail-panel',
+          'bottom-0 left-0 right-0 rounded-t-2xl max-h-[88vh]',
+          'md:bottom-auto md:inset-y-0 md:left-auto md:right-0',
+          'md:rounded-none md:max-h-none md:w-full md:max-w-sm md:border-l',
+        )}
+      >
+        {/* Drag handle */}
+        <div
+          ref={handleRef}
+          className="md:hidden flex justify-center pt-3 pb-1 shrink-0 touch-none cursor-grab"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/25" />
+        </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 md:py-4 border-b shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-xl">{CATEGORY_EMOJI[item.category]}</span>
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -109,6 +131,16 @@ export default function ItemDetailPanel({ item, onClose, onEdit, onSell }: Props
                 Vender
               </button>
             )}
+            {onDuplicate && (
+              <button
+                onClick={() => { onClose(); onDuplicate(item) }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-accent transition-colors text-muted-foreground"
+                title="Duplicar ítem"
+              >
+                <Copy size={14} />
+                <span className="hidden sm:inline">Duplicar</span>
+              </button>
+            )}
             <button
               onClick={() => { onClose(); onEdit(item) }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-accent transition-colors text-muted-foreground"
@@ -123,10 +155,16 @@ export default function ItemDetailPanel({ item, onClose, onEdit, onSell }: Props
         </div>
 
         {/* Scroll content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overscroll-contain">
 
-          {/* Imagen */}
-          <div className="aspect-square bg-white w-full">
+          {/* Imagen — toca para abrir lightbox */}
+          <div
+            className={cn(
+              'aspect-[4/3] md:aspect-square bg-white w-full shrink-0',
+              item.images.length > 0 && 'cursor-zoom-in',
+            )}
+            onClick={() => item.images.length > 0 && setLightboxIndex(0)}
+          >
             {item.images.length > 0
               ? <ImageCarousel images={item.images} alt={item.name} className="w-full h-full" />
               : <div className="w-full h-full flex items-center justify-center text-7xl">
@@ -196,9 +234,20 @@ export default function ItemDetailPanel({ item, onClose, onEdit, onSell }: Props
                 <p className="text-sm leading-relaxed text-foreground/80">{item.notes}</p>
               </div>
             )}
+
+            <div style={{ height: 'env(safe-area-inset-bottom)' }} className="md:hidden" />
           </div>
         </div>
       </div>
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          images={item.images}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </>
   )
 }

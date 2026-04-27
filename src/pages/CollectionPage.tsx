@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Package, Plus, X, Search, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Package, Plus, X, Search, ArrowUpDown, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
 import { useCollectionItems, useCollectionCounts, type CollectionFilters } from '@/hooks/useCollection'
+import { useSwipeDown } from '@/hooks/useSwipeDown'
 import ItemCard from '@/components/ItemCard'
+import SkeletonCard from '@/components/SkeletonCard'
 import ItemDetailPanel from '@/components/ItemDetailPanel'
 import AddItemDialog from '@/components/AddItemDialog'
 import PutForSaleDialog from '@/components/PutForSaleDialog'
@@ -86,24 +88,34 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
       >
         <ChevronLeft size={16} />
       </button>
-      {pages.map((p, i) =>
-        p === '…' ? (
-          <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground text-sm select-none">…</span>
-        ) : (
-          <button
-            key={p}
-            onClick={() => onChange(p as number)}
-            className={cn(
-              'w-8 h-8 rounded-md text-sm font-medium transition-colors',
-              page === p
-                ? 'bg-primary text-primary-foreground'
-                : 'hover:bg-accent text-foreground',
-            )}
-          >
-            {(p as number) + 1}
-          </button>
-        )
-      )}
+
+      {/* Móvil: indicador compacto */}
+      <span className="sm:hidden text-sm text-muted-foreground px-3 min-w-[80px] text-center">
+        {page + 1} / {totalPages}
+      </span>
+
+      {/* Desktop: botones numerados */}
+      <div className="hidden sm:flex items-center gap-1">
+        {pages.map((p, i) =>
+          p === '…' ? (
+            <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground text-sm select-none">…</span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => onChange(p as number)}
+              className={cn(
+                'w-8 h-8 rounded-md text-sm font-medium transition-colors',
+                page === p
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-accent text-foreground',
+              )}
+            >
+              {(p as number) + 1}
+            </button>
+          )
+        )}
+      </div>
+
       <button
         onClick={() => onChange(page + 1)}
         disabled={page >= totalPages - 1}
@@ -128,17 +140,31 @@ const categories: { value: Category; label: string; emoji: string }[] = [
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function CollectionPage() {
-  const [activeCategory, setActiveCategory] = useState<Category | undefined>()
-  const [activeFilters, setActiveFilters]   = useState<Omit<CollectionFilters, 'category'>>({})
-  const [dialogOpen, setDialogOpen]         = useState(false)
-  const [editingItem, setEditingItem]       = useState<CollectionItem | undefined>()
-  const [detailItem,  setDetailItem]        = useState<CollectionItem | null>(null)
-  const [sellingItem, setSellingItem]       = useState<CollectionItem | undefined>()
-  const [search, setSearch]                 = useState('')
-  const [sortBy, setSortBy]                 = useState<SortKey>('created_desc')
-  const [page, setPage]                     = useState(0)
+  const [activeCategory, setActiveCategory] = useState<Category | undefined>(() =>
+    (localStorage.getItem('col_cat') as Category | null) ?? undefined
+  )
+  const [activeFilters, setActiveFilters] = useState<Omit<CollectionFilters, 'category'>>(() => {
+    try { return JSON.parse(localStorage.getItem('col_filters') ?? '{}') } catch { return {} }
+  })
+  const [dialogOpen,      setDialogOpen]      = useState(false)
+  const [editingItem,     setEditingItem]      = useState<CollectionItem | undefined>()
+  const [duplicatingItem, setDuplicatingItem]  = useState<CollectionItem | undefined>()
+  const [detailItem,      setDetailItem]       = useState<CollectionItem | null>(null)
+  const [sellingItem,     setSellingItem]      = useState<CollectionItem | undefined>()
+  const [search,          setSearch]           = useState('')
+  const [sortBy,          setSortByState]      = useState<SortKey>(() =>
+    (localStorage.getItem('col_sort') as SortKey) ?? 'created_desc'
+  )
+  const [page,            setPage]             = useState(0)
+  const [filterSheetOpen, setFilterSheetOpen]  = useState(false)
 
   const { toast } = useToast()
+  const filterSheet = useSwipeDown(() => setFilterSheetOpen(false))
+
+  function setSortBy(key: SortKey) {
+    setSortByState(key)
+    localStorage.setItem('col_sort', key)
+  }
 
   const filters: CollectionFilters = { ...activeFilters, category: activeCategory, status: 'owned' }
   const { data: items, isLoading }  = useCollectionItems(filters)
@@ -162,24 +188,44 @@ export default function CollectionPage() {
     return sortItems(filtered, sortBy)
   }, [items, q, sortBy])
 
-  // Resetear página cuando cambia cualquier filtro
   useEffect(() => { setPage(0) }, [search, sortBy, activeCategory, activeFilters])
 
-  const pagedItems  = visibleItems.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE)
-  const totalItems  = visibleItems.length
+  const pagedItems = visibleItems.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE)
+  const totalItems = visibleItems.length
 
   function selectCategory(cat: Category | undefined) {
     setActiveCategory(cat)
     setActiveFilters({})
+    if (cat) localStorage.setItem('col_cat', cat)
+    else localStorage.removeItem('col_cat')
+    localStorage.setItem('col_filters', '{}')
   }
 
   function toggleFilter(key: keyof Omit<CollectionFilters, 'category'>, value: string) {
-    setActiveFilters(prev => ({ ...prev, [key]: prev[key] === value ? undefined : value }))
+    setActiveFilters(prev => {
+      const next = { ...prev, [key]: prev[key] === value ? undefined : value }
+      localStorage.setItem('col_filters', JSON.stringify(next))
+      return next
+    })
+  }
+
+  function setFilter(key: keyof Omit<CollectionFilters, 'category'>, value: string) {
+    setActiveFilters(prev => {
+      const next = { ...prev, [key]: value || undefined }
+      localStorage.setItem('col_filters', JSON.stringify(next))
+      return next
+    })
+  }
+
+  function changePage(p: number) {
+    setPage(p)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const filtersForCategory = activeCategory ? categoryFilters[activeCategory] : []
   const activeFilterCount  = Object.values(activeFilters).filter(Boolean).length
   const hasActiveSearch    = q.length > 0
+  const mobileFilterBadge  = (activeCategory !== undefined ? 1 : 0) + activeFilterCount
 
   function getFilterLabel(key: string, value: string) {
     if (key === 'condition') return conditionLabel[value] ?? value
@@ -188,13 +234,12 @@ export default function CollectionPage() {
 
   function handleDeleted() {
     toast('Ítem eliminado')
-    // Si el detalle estaba abierto, cerrarlo
     setDetailItem(null)
   }
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
           <h2 className="text-2xl font-bold">Mi Colección</h2>
           {items && (
@@ -207,15 +252,15 @@ export default function CollectionPage() {
         </div>
         <button
           onClick={() => setDialogOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity shrink-0"
         >
           <Plus size={16} />
           Agregar ítem
         </button>
       </div>
 
-      {/* Buscador + Ordenar */}
-      <div className="flex flex-col sm:flex-row gap-2">
+      {/* Buscador + controles */}
+      <div className="flex gap-2">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
@@ -223,6 +268,9 @@ export default function CollectionPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nombre, marca, artista..."
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
             className="w-full pl-9 pr-9 py-2 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
           {search && (
@@ -234,7 +282,28 @@ export default function CollectionPage() {
             </button>
           )}
         </div>
-        <div className="relative">
+
+        {/* Mobile/tablet: botón de filtros */}
+        <button
+          onClick={() => setFilterSheetOpen(true)}
+          className={cn(
+            'lg:hidden flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium transition-colors shrink-0',
+            mobileFilterBadge > 0
+              ? 'bg-primary/10 border-primary/40 text-primary'
+              : 'bg-background hover:bg-accent',
+          )}
+        >
+          <SlidersHorizontal size={15} />
+          Filtros
+          {mobileFilterBadge > 0 && (
+            <span className="bg-primary text-primary-foreground rounded-full min-w-[18px] h-[18px] text-[10px] flex items-center justify-center font-bold leading-none px-1">
+              {mobileFilterBadge}
+            </span>
+          )}
+        </button>
+
+        {/* Desktop: select de ordenar */}
+        <div className="hidden lg:block relative">
           <ArrowUpDown size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <select
             value={sortBy}
@@ -248,8 +317,8 @@ export default function CollectionPage() {
         </div>
       </div>
 
-      {/* Filtros de categoría con contadores */}
-      <div className="flex gap-2 overflow-x-auto pb-0.5 flex-nowrap sm:flex-wrap scrollbar-none">
+      {/* Desktop: filtros de categoría */}
+      <div className="hidden lg:flex gap-2 overflow-x-auto pb-0.5 flex-nowrap lg:flex-wrap scrollbar-none">
         <button
           onClick={() => selectCategory(undefined)}
           className={cn(
@@ -280,9 +349,9 @@ export default function CollectionPage() {
         ))}
       </div>
 
-      {/* Filtros específicos por categoría */}
+      {/* Desktop: filtros específicos */}
       {filtersForCategory.length > 0 && (
-        <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+        <div className="hidden lg:block space-y-2 border rounded-lg p-3 bg-muted/30">
           {filtersForCategory.map((filterDef) => (
             <div key={filterDef.key} className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-muted-foreground w-16 shrink-0">
@@ -306,7 +375,7 @@ export default function CollectionPage() {
           ))}
           {activeFilterCount > 0 && (
             <button
-              onClick={() => setActiveFilters({})}
+              onClick={() => { setActiveFilters({}); localStorage.setItem('col_filters', '{}') }}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
             >
               <X size={12} />
@@ -318,8 +387,8 @@ export default function CollectionPage() {
 
       {/* Grid de ítems */}
       {isLoading ? (
-        <div className="flex justify-center py-24">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : pagedItems.length > 0 ? (
         <>
@@ -335,7 +404,7 @@ export default function CollectionPage() {
               />
             ))}
           </div>
-          <Pagination page={page} total={totalItems} onChange={setPage} />
+          <Pagination page={page} total={totalItems} onChange={changePage} />
         </>
       ) : (
         <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground space-y-2">
@@ -370,12 +439,20 @@ export default function CollectionPage() {
         item={editingItem}
         onSuccess={() => toast('Ítem actualizado')}
       />
+      <AddItemDialog
+        open={!!duplicatingItem}
+        onClose={() => setDuplicatingItem(undefined)}
+        item={duplicatingItem}
+        isDuplicate
+        onSuccess={() => toast('Ítem duplicado')}
+      />
 
       {/* Panel detalle */}
       <ItemDetailPanel
         item={detailItem}
         onClose={() => setDetailItem(null)}
         onEdit={item => { setDetailItem(null); setEditingItem(item) }}
+        onDuplicate={item => { setDetailItem(null); setDuplicatingItem(item) }}
         onSell={item => { setDetailItem(null); setSellingItem(item) }}
       />
 
@@ -389,6 +466,130 @@ export default function CollectionPage() {
           setSellingItem(undefined)
         }}
       />
+
+      {/* Mobile/tablet: filter bottom sheet */}
+      {filterSheetOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[55] bg-black/40"
+            onClick={() => setFilterSheetOpen(false)}
+          />
+          <div
+            ref={filterSheet.panelRef}
+            className="fixed bottom-0 left-0 right-0 z-[60] bg-card rounded-t-2xl shadow-2xl animate-detail-panel"
+          >
+            <div
+              ref={filterSheet.handleRef}
+              className="flex justify-center pt-3 pb-1 shrink-0 touch-none cursor-grab"
+            >
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/25" />
+            </div>
+
+            <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
+              <h3 className="font-semibold text-base">Filtros</h3>
+              <div className="flex items-center gap-3">
+                {(mobileFilterBadge > 0 || sortBy !== 'created_desc') && (
+                  <button
+                    onClick={() => { selectCategory(undefined); setSortBy('created_desc') }}
+                    className="text-xs text-primary font-medium"
+                  >
+                    Limpiar todo
+                  </button>
+                )}
+                <button
+                  onClick={() => setFilterSheetOpen(false)}
+                  className="p-1.5 rounded-md hover:bg-accent transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto overscroll-contain max-h-[62vh] px-5 py-4 space-y-5">
+
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Ordenar por
+                </p>
+                <div className="relative">
+                  <ArrowUpDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value as SortKey)}
+                    className="w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring appearance-none text-foreground"
+                  >
+                    {SORT_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Categoría
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => selectCategory(undefined)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                      !activeCategory
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-accent',
+                    )}
+                  >
+                    Todos
+                    {Object.values(counts).reduce((a, b) => a + b, 0) > 0 &&
+                      <span className="ml-1 opacity-70">({Object.values(counts).reduce((a, b) => a + b, 0)})</span>}
+                  </button>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.value}
+                      onClick={() => selectCategory(activeCategory === cat.value ? undefined : cat.value)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                        activeCategory === cat.value
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-secondary-foreground hover:bg-accent',
+                      )}
+                    >
+                      {cat.emoji} {cat.label}
+                      {counts[cat.value] != null &&
+                        <span className="ml-1 opacity-70">({counts[cat.value]})</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {filtersForCategory.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Filtros específicos
+                  </p>
+                  {filtersForCategory.map((filterDef) => (
+                    <div key={filterDef.key}>
+                      <label className="block text-sm font-medium mb-1.5">{filterDef.label}</label>
+                      <select
+                        value={activeFilters[filterDef.key] ?? ''}
+                        onChange={e => setFilter(filterDef.key, e.target.value)}
+                        className="w-full px-3 py-2.5 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                      >
+                        <option value="">Todos</option>
+                        {filterDef.options.map(opt => (
+                          <option key={opt} value={opt}>{getFilterLabel(filterDef.key, opt)}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ height: 'env(safe-area-inset-bottom)' }} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

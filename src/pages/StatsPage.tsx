@@ -5,7 +5,28 @@ import {
   LabelList,
 } from 'recharts'
 import { useCollectionItems } from '@/hooks/useCollection'
-import { TrendingUp, TrendingDown, Package, DollarSign } from 'lucide-react'
+import { TrendingUp, TrendingDown, Package, DollarSign, Download } from 'lucide-react'
+import type { CollectionItem } from '@/types/collection'
+
+function exportToCSV(items: CollectionItem[]) {
+  const headers = ['Nombre','Categoría','Marca','Subcategoría','Condición',
+                   'Precio compra','Valor estimado','Año adquisición','Mes adquisición','Notas']
+  const rows = items.map(item => [
+    item.name, item.category, item.brand, item.subcategory, item.condition,
+    item.acquisition_price ?? '', item.estimated_value ?? '',
+    item.acquisition_year ?? '', item.acquisition_month ?? '', item.notes ?? '',
+  ])
+  const csv = [headers, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `coleccion-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 import { cn } from '@/lib/utils'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -180,7 +201,16 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Estadísticas</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Estadísticas</h2>
+        <button
+          onClick={() => exportToCSV(items)}
+          className="flex items-center gap-1.5 px-3 py-2 border rounded-md text-sm font-medium hover:bg-accent transition-colors text-muted-foreground"
+        >
+          <Download size={15} />
+          Exportar CSV
+        </button>
+      </div>
 
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
