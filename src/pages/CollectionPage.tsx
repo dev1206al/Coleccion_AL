@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Package, Plus, X, Search, ArrowUpDown, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
+import { Package, Plus, X, Search, ArrowUpDown, ChevronLeft, ChevronRight, SlidersHorizontal, LayoutGrid, LayoutList } from 'lucide-react'
 import { useCollectionItems, useCollectionCounts, type CollectionFilters } from '@/hooks/useCollection'
 import { useSwipeDown } from '@/hooks/useSwipeDown'
 import ItemCard from '@/components/ItemCard'
+import ItemListRow from '@/components/ItemListRow'
 import SkeletonCard from '@/components/SkeletonCard'
 import ItemDetailPanel from '@/components/ItemDetailPanel'
 import AddItemDialog from '@/components/AddItemDialog'
@@ -157,6 +158,14 @@ export default function CollectionPage() {
   )
   const [page,            setPage]             = useState(0)
   const [filterSheetOpen, setFilterSheetOpen]  = useState(false)
+  const [viewMode,        setViewModeState]    = useState<'grid' | 'list'>(() =>
+    (localStorage.getItem('col_view') as 'grid' | 'list') ?? 'grid'
+  )
+
+  function setViewMode(mode: 'grid' | 'list') {
+    setViewModeState(mode)
+    localStorage.setItem('col_view', mode)
+  }
 
   const { toast } = useToast()
   const filterSheet = useSwipeDown(() => setFilterSheetOpen(false))
@@ -302,6 +311,30 @@ export default function CollectionPage() {
           )}
         </button>
 
+        {/* Vista grid / lista */}
+        <div className="flex border rounded-lg overflow-hidden shrink-0">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={cn(
+              'p-2 transition-colors',
+              viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent',
+            )}
+            title="Vista cuadrícula"
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={cn(
+              'p-2 transition-colors',
+              viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent',
+            )}
+            title="Vista lista"
+          >
+            <LayoutList size={16} />
+          </button>
+        </div>
+
         {/* Desktop: select de ordenar */}
         <div className="hidden lg:block relative">
           <ArrowUpDown size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -385,25 +418,42 @@ export default function CollectionPage() {
         </div>
       )}
 
-      {/* Grid de ítems */}
+      {/* Ítems */}
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : pagedItems.length > 0 ? (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {pagedItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                onEdit={item => { setEditingItem(item) }}
-                onDetail={setDetailItem}
-                onSell={setSellingItem}
-                onDeleted={handleDeleted}
-              />
-            ))}
-          </div>
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {pagedItems.map((item, i) => (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  index={i}
+                  onEdit={item => { setEditingItem(item) }}
+                  onDetail={setDetailItem}
+                  onSell={setSellingItem}
+                  onDeleted={handleDeleted}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="border rounded-lg overflow-hidden">
+              {pagedItems.map((item, i) => (
+                <ItemListRow
+                  key={item.id}
+                  item={item}
+                  index={i}
+                  onEdit={item => { setEditingItem(item) }}
+                  onDetail={setDetailItem}
+                  onSell={setSellingItem}
+                  onDeleted={handleDeleted}
+                />
+              ))}
+            </div>
+          )}
           <Pagination page={page} total={totalItems} onChange={changePage} />
         </>
       ) : (

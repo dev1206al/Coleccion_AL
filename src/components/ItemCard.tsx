@@ -39,13 +39,14 @@ function formatDate(year: number | null, month: number | null): string | null {
 
 interface Props {
   item: CollectionItem
+  index?: number
   onEdit: (item: CollectionItem) => void
   onDetail: (item: CollectionItem) => void
   onSell?: (item: CollectionItem) => void
   onDeleted?: () => void
 }
 
-export default function ItemCard({ item, onEdit, onDetail, onSell, onDeleted }: Props) {
+export default function ItemCard({ item, index = 0, onEdit, onDetail, onSell, onDeleted }: Props) {
   const deleteItem = useDeleteItem()
   const [confirming, setConfirming] = useState(false)
   const dateStr = formatDate(item.acquisition_year, item.acquisition_month)
@@ -58,7 +59,8 @@ export default function ItemCard({ item, onEdit, onDetail, onSell, onDeleted }: 
 
   return (
     <div
-      className="border rounded-lg bg-card overflow-hidden hover:shadow-md transition-all group cursor-pointer active:scale-[0.97] active:shadow-sm"
+      className="card-in border rounded-lg bg-card overflow-hidden hover:shadow-md transition-all group cursor-pointer active:scale-[0.97] active:shadow-sm"
+      style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
       onClick={() => onDetail(item)}
     >
       <div className="aspect-square bg-white flex items-center justify-center text-5xl overflow-hidden">

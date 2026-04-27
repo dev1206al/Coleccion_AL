@@ -70,6 +70,14 @@ export default function Layout() {
               {isDark ? <Sun size={16} /> : <Moon size={16} />}
             </button>
 
+            {user?.email && (
+              <div
+                className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0 select-none"
+                title={user.email}
+              >
+                {user.email[0].toUpperCase()}
+              </div>
+            )}
             <span className="text-xs text-muted-foreground hidden sm:block">{user?.email}</span>
             <button
               onClick={handleSignOut}
