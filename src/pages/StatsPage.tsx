@@ -113,9 +113,46 @@ function ChartCard({ title, children, className }: {
   title: string; children: React.ReactNode; className?: string
 }) {
   return (
-    <div className={cn('border rounded-xl p-6 bg-card space-y-4', className)}>
+    <div className={cn('border rounded-xl p-4 sm:p-6 bg-card space-y-4', className)}>
       <h3 className="font-semibold text-base">{title}</h3>
       {children}
+    </div>
+  )
+}
+
+function DonutChart({ data }: {
+  data: { name: string; value: number; color: string }[]
+}) {
+  return (
+    <div className="space-y-3">
+      <ResponsiveContainer width="100%" height={180}>
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%" cy="50%"
+            innerRadius={50} outerRadius={74}
+            paddingAngle={3} dataKey="value"
+            animationBegin={0} animationDuration={600}
+          >
+            {data.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+          </Pie>
+          <Tooltip content={<PieTooltip />} />
+        </PieChart>
+      </ResponsiveContainer>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:flex sm:flex-wrap sm:justify-center">
+        {data.map(entry => (
+          <div key={entry.name} className="flex items-center gap-2 min-w-0 text-xs">
+            <span
+              aria-hidden
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="truncate text-muted-foreground">{entry.name}</span>
+            <span className="font-semibold text-foreground">{entry.value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -230,45 +267,11 @@ export default function StatsPage() {
       {/* ── Donuts ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChartCard title="Ítems por categoría">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={stats.byCategory}
-                cx="50%" cy="50%"
-                innerRadius={60} outerRadius={90}
-                paddingAngle={3} dataKey="value"
-                animationBegin={0} animationDuration={600}
-              >
-                {stats.byCategory.map((e, i) => <Cell key={i} fill={e.color} />)}
-              </Pie>
-              <Tooltip content={<PieTooltip />} />
-              <Legend
-                iconType="circle" iconSize={8}
-                formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <DonutChart data={stats.byCategory} />
         </ChartCard>
 
         <ChartCard title="Condición de la colección">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={stats.byCondition}
-                cx="50%" cy="50%"
-                innerRadius={60} outerRadius={90}
-                paddingAngle={3} dataKey="value"
-                animationBegin={0} animationDuration={600}
-              >
-                {stats.byCondition.map((e, i) => <Cell key={i} fill={e.color} />)}
-              </Pie>
-              <Tooltip content={<PieTooltip />} />
-              <Legend
-                iconType="circle" iconSize={8}
-                formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <DonutChart data={stats.byCondition} />
         </ChartCard>
       </div>
 

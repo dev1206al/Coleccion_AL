@@ -35,57 +35,62 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="border-b px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-        {/* Logo banner (icono + título en un solo SVG) */}
-        <LogoBanner className="h-10 w-auto shrink-0 text-blue-600 dark:text-blue-400" />
+      <header className="relative z-10 border-b bg-background">
+        {/* Mantiene el contenido fuera del área que iOS cubre con su interfaz translúcida. */}
+        <div aria-hidden style={{ height: 'env(safe-area-inset-top)' }} />
 
-        <div className="flex items-center gap-2 sm:gap-4">
-          {/* Nav — solo visible en desktop (lg+) */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {navItems.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  )
-                }
+        <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          {/* Logo banner (icono + título en un solo SVG) */}
+          <LogoBanner className="h-10 w-auto shrink-0 text-blue-600 dark:text-blue-400" />
+
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Nav — solo visible en desktop (lg+) */}
+            <nav className="hidden lg:flex items-center gap-1">
+              {navItems.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    )
+                  }
+                >
+                  <Icon size={16} />
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="flex items-center gap-1 sm:gap-2 lg:border-l lg:pl-4">
+              <button
+                onClick={() => setIsDark(d => !d)}
+                className="p-2 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
               >
-                <Icon size={16} />
-                {label}
-              </NavLink>
-            ))}
-          </nav>
+                {isDark ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
 
-          <div className="flex items-center gap-1 sm:gap-2 lg:border-l lg:pl-4">
-            <button
-              onClick={() => setIsDark(d => !d)}
-              className="p-2 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-            >
-              {isDark ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
-            {user?.email && (
-              <div
-                className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0 select-none"
-                title={user.email}
+              {user?.email && (
+                <div
+                  className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0 select-none"
+                  title={user.email}
+                >
+                  {user.email[0].toUpperCase()}
+                </div>
+              )}
+              <span className="text-xs text-muted-foreground hidden sm:block">{user?.email}</span>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
               >
-                {user.email[0].toUpperCase()}
-              </div>
-            )}
-            <span className="text-xs text-muted-foreground hidden sm:block">{user?.email}</span>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-            >
-              <LogOut size={16} />
-              <span className="hidden sm:inline">Salir</span>
-            </button>
+                <LogOut size={16} />
+                <span className="hidden sm:inline">Salir</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
