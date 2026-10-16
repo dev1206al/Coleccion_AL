@@ -8,9 +8,18 @@ Aplicación web mobile-first para catalogar, consultar y analizar colecciones pe
 
 ## Vista previa
 
-<p align="center">
-  <img src="docs/images/collection-mobile.png" alt="Vista principal de Colección AL" width="360">
-</p>
+<table>
+  <tr>
+    <th>Colección</th>
+    <th>Detalle del ítem</th>
+    <th>Estadísticas</th>
+  </tr>
+  <tr>
+    <td><img src="docs/images/collection-mobile.png" alt="Vista principal de Colección AL" width="280"></td>
+    <td><img src="docs/images/item-detail-mobile.png" alt="Detalle de una pieza en Colección AL" width="280"></td>
+    <td><img src="docs/images/stats-mobile.png" alt="Panel de estadísticas de Colección AL" width="280"></td>
+  </tr>
+</table>
 
 ## Funcionalidades
 
