@@ -35,7 +35,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="relative z-10 border-b bg-background">
+      <header className="sticky top-0 z-50 border-b bg-background">
         {/* Mantiene el contenido fuera del área que iOS cubre con su interfaz translúcida. */}
         <div aria-hidden style={{ height: 'env(safe-area-inset-top)' }} />
 
